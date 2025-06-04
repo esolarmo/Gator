@@ -1,6 +1,7 @@
 import { readConfig, setUser } from "./config.js";
 import { argv } from 'node:process';
-import { getUserByName, createUser, deleteUsers } from "./lib/db/queries/users.js";
+import { getUserByName, createUser, deleteUsers, getAllUsers } from "./lib/db/queries/users.js";
+import { read } from "node:fs";
 
 
 
@@ -41,18 +42,36 @@ async function handlerRegister(cmdName: string, ...args: string[]): Promise<void
         throw new Error("Username required");
     }
     const name = args[0];
-    console.log(`Name: ${name}`);
+    //console.log(`Name: ${name}`);
     const userExists = await getUserByName(name);
     //console.log("getUserByName returned:", userExists);
     if (userExists) {
         console.log("User already exists");
         process.exit(1);
     }
-    const data2 = await createUser(name);
+    const data = await createUser(name);
     setUser(name);
     console.log(`User ${name} created`)
-    console.log(data2);
+    //console.log(data);
     return;
+
+}
+
+async function handlerUsers(cmdName: string, ...args: string[]): Promise<void> {
+    const currentUser = readConfig().currentUserName;
+    const users = await getAllUsers();
+    //console.log(users);
+    if (users.length === 0) {
+        console.log("No users found!");
+        process.exit(1);
+    }
+    for (let user of users) {
+        if (user.name === currentUser) {
+            console.log(`* ${user.name} (current)`);
+        } else {
+            console.log(`* ${user.name}`);
+        }
+    }
 
 }
 
@@ -75,6 +94,7 @@ async function main() {
         registerCommand(registry, "login", handlerLogin);
         registerCommand(registry, "register", handlerRegister);
         registerCommand(registry, "reset", handlerReset);
+        registerCommand(registry, "users", handlerUsers);
 
         const args = process.argv;
         const command = args[2];
