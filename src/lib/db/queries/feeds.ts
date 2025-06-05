@@ -2,7 +2,7 @@ import { db } from "..";
 import { users, feeds, feed_follows } from "../schema";
 import { getUserByName } from "./users";
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm'
-import { eq, lt, gte, ne } from 'drizzle-orm';
+import { eq, lt, gte, ne, and } from 'drizzle-orm';
 
 export type Feed = typeof feeds.$inferSelect; 
 export type User = typeof users.$inferSelect; 
@@ -15,8 +15,8 @@ export async function createFeed(name: string, url: string, userName: string) {
     }
     const user = await getUserByName(userName);
     const [result] = await db.insert(feeds).values({ name: name, url: url, user_id: user.id }).returning();
-    console.log("New Feed added");
-    await printFeed(result, user);
+    //console.log("New Feed added");
+    //await printFeed(result, user);
     return;
 }
 
@@ -49,6 +49,14 @@ export async function getFeedByURL(url: string) {
 export async function createFeedFollow(url: string, userName: string) {
     const user = await getUserByName(userName);
     const feed = await getFeedByURL(url);
+    if (!feed) {
+        throw new Error("Feed not found");
+    }
+    const [exists] = await db.select().from(feed_follows).where(and(eq(feed_follows.feed_id, feed.id), eq(feed_follows.user_id, user.id)));
+    if (exists) {
+        throw new Error(`Already following ${url} for user ${user.name}`);
+    }
+    
     const [newRow] = await db.insert(feed_follows).values({ user_id: user.id, feed_id: feed.id }).returning();
 
     const [result] = await db.select().from(feed_follows)
@@ -62,8 +70,14 @@ export async function createFeedFollow(url: string, userName: string) {
 export async function getFeedFollowsForUser(userName: string) {
     const user = await getUserByName(userName);
     const result = await db.select().from(feed_follows)
-        .innerJoin(users, eq(feed_follows.user_id, user.id))
-        .innerJoin(feeds, eq(feed_follows.feed_id, feeds.id));
+        .innerJoin(users, eq(feed_follows.user_id, users.id))
+        .innerJoin(feeds, eq(feed_follows.feed_id, feeds.id))
+        .where(eq(users.id, user.id));
 
-    console.log(result);
+    return result;
+}
+
+export async function feedUnfollow(user: User, url: string) {
+    const feed = await getFeedByURL(url);
+    const [result] = await db.delete(feed_follows).where(and(eq(feed_follows.feed_id, feed.id ), eq(feed_follows.user_id, user.id))).returning();
 }

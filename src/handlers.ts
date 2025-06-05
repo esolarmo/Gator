@@ -1,7 +1,8 @@
 import { setUser, readConfig } from "./config";
 import { getUserByName, deleteUsers, createUser, getAllUsers } from "./lib/db/queries/users";
 import { fetchFeed } from "./feed";
-import { createFeed, printAllFeeds, createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feeds";
+import { createFeed, printAllFeeds, createFeedFollow, getFeedFollowsForUser, feedUnfollow } from "./lib/db/queries/feeds";
+import { User } from "./lib/db/queries/feeds.js";
 
 export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
     if (args.length === 0) {
@@ -20,7 +21,7 @@ export async function handlerLogin(cmdName: string, ...args: string[]): Promise<
     return;
 }
 
-export async function handlerReset(cmdName: string, ...args: string[]): Promise<void> {
+export async function handlerReset(_: string): Promise<void> {
     try {
         await deleteUsers();
         console.log("All users deleted");
@@ -75,28 +76,29 @@ export async function handlerAgg(cmdName: string, ...args: string[]): Promise<vo
 
 }
 
-export async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void> {
+export async function handlerAddFeed(cmdName: string, user: User, ...args: string[]): Promise<void> {
     if (args.length < 2) {
         console.log("Invalid parameters");
         process.exit(1);
     }
-    const currentUser = readConfig().currentUserName;
+    const currentUser = user.name;
     const name = args[0];
     const url = args[1];
     const feed = await createFeed(name, url, currentUser);
-    
+    const follow = await createFeedFollow(url, currentUser);
+    console.log(`Feed added:`);
+    console.log(` * Feed name: ${follow.feeds.name}`);
+    console.log(` * User name: ${follow.users.name}`);
+    return;
 }
 
 export async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
     await printAllFeeds();
 }
 
-export async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> {
-    if (args.length < 1) {
-        console.log("Invalid parameters");
-        process.exit(1);
-    }
-    const currentUser = readConfig().currentUserName;
+export async function handlerFollow(_: string, user: User, ...args: string[]): Promise<void> {
+
+    const currentUser = user.name;
     const url = args[0];
     const result = await createFeedFollow(url, currentUser);
     console.log(`Following a feed`);
@@ -105,8 +107,31 @@ export async function handlerFollow(cmdName: string, ...args: string[]): Promise
     
 }
 
-export async function handlerFollowing(cmdName: string, ...args: string[]): Promise<void> {
-    const currentUser = readConfig().currentUserName;
-    await getFeedFollowsForUser(currentUser);
+export async function handlerFollowing(_: string, user: User): Promise<void> {
+    const currentUser = user.name;
+    const result = await getFeedFollowsForUser(currentUser);
+    if (result.length === 0) {
+        console.log(`No feeds followed by user ${currentUser}`);
+        return;
+    }
+
+    console.log(`User ${currentUser} is following:`);
+    for (let r of result) {
+        console.log(` * ${r.feeds.name}`);
+    }
+    
+
+}
+
+export async function handlerUnfollow(_: string, user: User, ...args: string[]): Promise<void> {
+    if (!args) {
+        throw new Error("No feed URL provided");
+    }
+    
+    const url = args[0];
+    const response = await feedUnfollow(user, url);
+
+    console.log(`Feed ${url} unfollowed`);
+
 
 }

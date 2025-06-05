@@ -3,11 +3,38 @@ import { argv } from 'node:process';
 import { getUserByName, createUser, deleteUsers, getAllUsers } from "./lib/db/queries/users.js";
 import { read } from "node:fs";
 import { fetchFeed } from "./feed.js";
-import { handlerAgg, handlerLogin, handlerRegister, handlerReset, handlerUsers, handlerAddFeed, handlerFeeds, handlerFollow, handlerFollowing } from "./handlers";
+import { handlerAgg, handlerLogin, handlerRegister, handlerReset, handlerUsers, handlerAddFeed, handlerFeeds, handlerFollow, handlerUnfollow, handlerFollowing } from "./handlers";
+import { User } from "./lib/db/queries/feeds.js";
 
 
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 type CommandsRegistry = Record<string, CommandHandler>;
+type UserCommandHandler = (
+  cmdName: string,
+  user: User,
+  ...args: string[]
+) => Promise<void>;
+type middlewareLoggedIn = (handler: UserCommandHandler) => CommandHandler;
+
+
+export function middlewareLoggedIn(handler: 
+    UserCommandHandler,
+): CommandHandler {
+  return async (cmdName: string, ...args: string[]): Promise<void> => {
+    const config = readConfig();
+    const userName = config.currentUserName;
+    if (!userName) {
+      throw new Error("User not logged in");
+    }
+
+    const user = await getUserByName(userName);
+    if (!user) {
+      throw new Error(`User ${userName} not found`);
+    }
+
+    await handler(cmdName, user, ...args);
+  };
+}
 
 
 async function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
@@ -31,10 +58,11 @@ async function main() {
         registerCommand(registry, "reset", handlerReset);
         registerCommand(registry, "users", handlerUsers);
         registerCommand(registry, "agg", handlerAgg);
-        registerCommand(registry, "addfeed", handlerAddFeed);
         registerCommand(registry, "feeds", handlerFeeds);
-        registerCommand(registry, "follow", handlerFollow);
-        registerCommand(registry, "following", handlerFollowing);
+        registerCommand(registry, "addfeed", middlewareLoggedIn(handlerAddFeed));
+        registerCommand(registry, "follow", middlewareLoggedIn(handlerFollow));
+        registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnfollow));
+        registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
 
         const args = process.argv;
         const command = args[2];
