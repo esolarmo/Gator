@@ -1,6 +1,7 @@
 import { db } from "..";
 import { users, feeds, feed_follows } from "../schema";
 import { getUserByName } from "./users";
+import { Post, createPost } from "./posts";
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm'
 import { eq, lt, gte, ne, and, sql, asc, desc } from 'drizzle-orm';
 import { XMLParser } from "fast-xml-parser";
@@ -123,13 +124,25 @@ export async function scrapeFeeds() {
     }
     await markFeedFetched(nextFeed.id);
     const feed = await fetchFeed(nextFeed.url);
-    printFeedTitles(feed.channel.item);
+    //printFeedTitles(feed.channel.item);
+    await createFeedPosts(feed.channel.item, nextFeed);
+    
 }
 
 function printFeedTitles(items: RSSItem[]) {
     console.log("--- Feed titles ---");
     for (let item of items) {
         console.log(`* ${item.title}`);
+    }
+}
+
+async function createFeedPosts(items: RSSItem[], feed: Feed) {
+    console.log("--- Creating posts ---");
+    for (let item of items) {
+        const timestamp = Date.parse(item.pubDate);
+        const date = new Date(timestamp);
+        await createPost(item.title, item.link, item.description, date, feed);
+        //console.log(`* ${item.title}`);
     }
 }
 

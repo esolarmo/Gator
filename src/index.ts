@@ -2,7 +2,7 @@ import { readConfig, setUser } from "./config.js";
 import { argv } from 'node:process';
 import { getUserByName, createUser, deleteUsers, getAllUsers } from "./lib/db/queries/users.js";
 import { read } from "node:fs";
-import { handlerAgg, handlerLogin, handlerRegister, handlerReset, handlerUsers, handlerAddFeed, handlerFeeds, handlerFollow, handlerUnfollow, handlerFollowing } from "./handlers";
+import { handlerAgg, handlerLogin, handlerRegister, handlerReset, handlerUsers, handlerAddFeed, handlerFeeds, handlerFollow, handlerUnfollow, handlerFollowing, handlerBrowse } from "./handlers";
 import { User } from "./lib/db/queries/feeds.js";
 
 
@@ -62,6 +62,7 @@ async function main() {
         registerCommand(registry, "follow", middlewareLoggedIn(handlerFollow));
         registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnfollow));
         registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
+        registerCommand(registry, "browse", middlewareLoggedIn(handlerBrowse));
 
         const args = process.argv;
         const command = args[2];

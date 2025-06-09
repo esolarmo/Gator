@@ -46,5 +46,6 @@ export const posts = pgTable("posts", {
   title: text("title").notNull(),
   url: text("url").notNull().unique(),
   description: text("description"),
+  publishedAt: timestamp("published_at").notNull(),
   feed_id: uuid("feed_id").references(() => feeds.id, {onDelete: 'cascade'}).notNull(),
 });

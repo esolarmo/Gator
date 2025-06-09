@@ -2,6 +2,7 @@ import { setUser, readConfig } from "./config";
 import { getUserByName, deleteUsers, createUser, getAllUsers } from "./lib/db/queries/users";
 import { createFeed, printAllFeeds, createFeedFollow, getFeedFollowsForUser, feedUnfollow, fetchFeed, scrapeFeeds } from "./lib/db/queries/feeds";
 import { User } from "./lib/db/queries/feeds.js";
+import { Post, getPostsForUser } from "./lib/db/queries/posts";
 
 export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
     if (args.length === 0) {
@@ -88,6 +89,17 @@ export async function handlerAgg(cmdName: string, timeBetweenRegs: string, ...ar
         resolve();
         });
     });
+
+}
+
+export async function handlerBrowse(_: string, user: User, ...args: string[]) {
+    let limit = 2;
+    if (args[0]) {
+        limit = Number(args[0]);
+    }
+    const posts: Post[] = await getPostsForUser(user, limit);
+
+    console.log(posts);
 
 }
 
