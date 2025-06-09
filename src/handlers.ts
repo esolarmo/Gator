@@ -1,7 +1,6 @@
 import { setUser, readConfig } from "./config";
 import { getUserByName, deleteUsers, createUser, getAllUsers } from "./lib/db/queries/users";
-import { fetchFeed } from "./feed";
-import { createFeed, printAllFeeds, createFeedFollow, getFeedFollowsForUser, feedUnfollow } from "./lib/db/queries/feeds";
+import { createFeed, printAllFeeds, createFeedFollow, getFeedFollowsForUser, feedUnfollow, fetchFeed, scrapeFeeds } from "./lib/db/queries/feeds";
 import { User } from "./lib/db/queries/feeds.js";
 
 export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
@@ -69,11 +68,50 @@ export async function handlerUsers(cmdName: string, ...args: string[]): Promise<
 
 }
 
-export async function handlerAgg(cmdName: string, ...args: string[]): Promise<void> {
-    const feed = await fetchFeed("https://www.wagslane.dev/index.xml");
+export async function handlerAgg(cmdName: string, timeBetweenRegs: string, ...args: string[]): Promise<void> {
+    if (!timeBetweenRegs) {
+        throw new Error("Provide a time interval");
+    }
 
-    console.log(JSON.stringify(feed, null, 2));
+    const timeBetweenRequests = parseDuration(timeBetweenRegs);
+    scrapeFeeds().catch(handleError);
+    
+    const interval = setInterval(() => {
+        scrapeFeeds().catch(handleError);
+    }, timeBetweenRequests);
 
+
+    await new Promise<void>((resolve) => {
+        process.on("SIGINT", () => {
+        console.log("Shutting down feed aggregator...");
+        clearInterval(interval);
+        resolve();
+        });
+    });
+
+}
+
+function handleError(error: Error) {
+    console.log(`Error: ${error.message}`);
+}
+
+function parseDuration(durationStr: string): number {
+    const regex = /^(\d+)(ms|s|m|h)$/;
+    const match = durationStr.match(regex);
+    if (match) {
+        const number = Number(match[1]);
+        if (match[2] === "h") {
+            return number * 60 * 60 * 1000;
+        } else if (match[2] === "m") {
+            return number * 60 * 1000;
+        } else if (match[2] === "s") {
+            return number * 1000;
+        } else if (match[2] === "ms") {
+            return number;
+        }
+
+    }
+    return 0;
 }
 
 export async function handlerAddFeed(cmdName: string, user: User, ...args: string[]): Promise<void> {

@@ -2,7 +2,6 @@ import { readConfig, setUser } from "./config.js";
 import { argv } from 'node:process';
 import { getUserByName, createUser, deleteUsers, getAllUsers } from "./lib/db/queries/users.js";
 import { read } from "node:fs";
-import { fetchFeed } from "./feed.js";
 import { handlerAgg, handlerLogin, handlerRegister, handlerReset, handlerUsers, handlerAddFeed, handlerFeeds, handlerFollow, handlerUnfollow, handlerFollowing } from "./handlers";
 import { User } from "./lib/db/queries/feeds.js";
 

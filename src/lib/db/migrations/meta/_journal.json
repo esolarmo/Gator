@@ -22,6 +22,20 @@
       "when": 1749109564763,
       "tag": "0002_known_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749447386168,
+      "tag": "0003_safe_firelord",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1749457711550,
+      "tag": "0004_giant_diamondback",
+      "breakpoints": true
     }
   ]
 }

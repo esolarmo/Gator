@@ -2,7 +2,25 @@ import { db } from "..";
 import { users, feeds, feed_follows } from "../schema";
 import { getUserByName } from "./users";
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm'
-import { eq, lt, gte, ne, and } from 'drizzle-orm';
+import { eq, lt, gte, ne, and, sql, asc, desc } from 'drizzle-orm';
+import { XMLParser } from "fast-xml-parser";
+
+
+type RSSFeed = {
+  channel: {
+    title: string;
+    link: string;
+    description: string;
+    item: RSSItem[];
+  };
+};
+
+type RSSItem = {
+  title: string;
+  link: string;
+  description: string;
+  pubDate: string;
+};
 
 export type Feed = typeof feeds.$inferSelect; 
 export type User = typeof users.$inferSelect; 
@@ -80,4 +98,80 @@ export async function getFeedFollowsForUser(userName: string) {
 export async function feedUnfollow(user: User, url: string) {
     const feed = await getFeedByURL(url);
     const [result] = await db.delete(feed_follows).where(and(eq(feed_follows.feed_id, feed.id ), eq(feed_follows.user_id, user.id))).returning();
+}
+
+export async function markFeedFetched(id: string) {
+    await db.update(feeds).set({ lastFetchedAt: sql`NOW()` }).where(eq(feeds.id, id));
+}
+
+export async function getNextFeedToFetch() {
+    let result: Feed[] = [<Feed>{}];
+
+    result = await db.select().from(feeds).orderBy(sql`${feeds.lastFetchedAt} asc nulls first`);
+
+    if (result.length > 0) {
+        return result[0];
+    }
+   
+}
+
+export async function scrapeFeeds() {
+    const nextFeed = await getNextFeedToFetch();
+    if (!nextFeed) {
+        console.log("No feeds added");
+        return;
+    }
+    await markFeedFetched(nextFeed.id);
+    const feed = await fetchFeed(nextFeed.url);
+    printFeedTitles(feed.channel.item);
+}
+
+function printFeedTitles(items: RSSItem[]) {
+    console.log("--- Feed titles ---");
+    for (let item of items) {
+        console.log(`* ${item.title}`);
+    }
+}
+
+export async function fetchFeed(feedURL: string) {
+    const response = await fetch(feedURL, {
+        method: "GET",
+        headers: {
+            "User-Agent": "gator",
+        },
+    });
+    const responseText = await response.text();
+    const parser = new XMLParser();
+
+    const feed = parser.parse(responseText);
+    //console.log(feed);
+    let rssFeed = <RSSFeed>{ channel: {}};
+
+    if (!feed.rss.channel) {
+        console.log("RSS Channel missing!");
+        process.exit(1);
+    } 
+
+    if (feed.rss.channel.title && feed.rss.channel.link && feed.rss.channel.description) {
+        rssFeed.channel.title = feed.rss.channel.title;
+        rssFeed.channel.link = feed.rss.channel.link;
+        rssFeed.channel.description = feed.rss.channel.description;
+    }
+    rssFeed.channel.item = [];
+    if (Array.isArray(feed.rss.channel.item)) {
+        for (let i of feed.rss.channel.item) {
+            if (i.title && i.link && i.description && i.pubDate) {
+                rssFeed.channel.item.push(<RSSItem>{
+                    title: i.title,
+                    link: i.link,
+                    description: i.description,
+                    pubDate: i.pubDate,
+                });
+            }
+        }
+    } 
+
+
+   return rssFeed;
+
 }
